@@ -11,3 +11,13 @@ MVP obserwuje IPv4, nie wykonuje aktywnego discovery. Cache nie gwarantuje stanu
 Nieobecność daje offline tylko przy świadomym oznaczeniu pełnego importu.
 MAC jest identyfikatorem heurystycznym: randomizacja i ponowne użycie IP mogą dawać
 pozorne zmiany. Vendor i hostname pochodzą z importu, nie są wysyłane do zewnętrznych baz.
+
+## Rozszerzenia 0.2.0
+
+`python app.py discover --cidr 192.168.1.0/24 --authorized --database lan.sqlite`
+wykonuje sondy ICMP do maksymalnie 256 adresów prywatnej podsieci RFC1918.
+`--resolve-names` włącza reverse DNS; `--oui oui.json` dodaje producenta z własnej bazy
+w formacie `{ "001122": "Producent" }`. Adres lokalny/losowy nie identyfikuje producenta.
+Brak odpowiedzi ICMP nie oznacza offline. Discovery nie ustawia `complete`; odpowiedzi
+bez dostępnego MAC raportuje osobno. Zniknięcia wymagają wiarygodnego pełnego importu.
+Nie uruchomiono aktywnego skanowania prawdziwej sieci w ramach testów deweloperskich.

@@ -1,3 +1,4 @@
+from discovery import discover,enrich,vendors
 import ipaddress
 from contextlib import contextmanager
 import json
@@ -64,16 +65,25 @@ def observe(path,rows,complete=False):
 
 def build():
     p=parser('Lokalny rejestr LAN w SQLite.')
-    p.add_argument('command',nargs='?',choices=['observe','list','history','tag'])
+    p.add_argument('command',nargs='?',choices=['observe','discover','list','history','tag'])
     p.add_argument('--database',default='lan.sqlite');p.add_argument('--input',help='Lista JSON ip/mac/hostname/vendor')
     p.add_argument('--complete',action='store_true',help='Import jest pełną obserwacją; nieobecne urządzenia oznacz offline')
     p.add_argument('--mac');p.add_argument('--category',choices=CATEGORIES)
+    p.add_argument('--cidr',help='Własny RFC1918 IPv4 CIDR, do 256 adresów')
+    p.add_argument('--authorized',action='store_true')
+    p.add_argument('--oui',help='Lokalna baza JSON: prefix OUI -> producent')
+    p.add_argument('--resolve-names',action='store_true',help='Opcjonalne reverse DNS wykrytych adresów')
     return p
 
 def handle(a):
+    if a.command=='discover':
+        if not a.cidr:raise ValueError('Podaj --cidr własnej sieci.')
+        result=discover(a.cidr,a.authorized,neighbors,vendors(a.oui),resolve_names=a.resolve_names)
+        result['observation']=observe(a.database,result['rows'],False)
+        return result
     if a.command=='observe':
         if a.complete and not a.input:raise ValueError('Cache sąsiadów nie jest pełnym wykryciem LAN.')
-        return observe(a.database,read_json(a.input) if a.input else neighbors(),a.complete)
+        return observe(a.database,enrich(read_json(a.input) if a.input else neighbors(),vendors(a.oui)),a.complete)
     with connect(a.database) as db:
         if a.command=='list':return [dict(r) for r in db.execute('SELECT * FROM devices ORDER BY ip')]
         if a.command=='history':return [dict(r) for r in db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 500')]
