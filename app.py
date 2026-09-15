@@ -19,7 +19,7 @@ def neighbors():
         data=[{'ip':r['IPAddress'],'mac':r['LinkLayerAddress']} for r in rows if ':' not in r['IPAddress']]
     else:
         rows=json.loads(run(['ip','-j','neigh']));data=[{'ip':r['dst'],'mac':r['lladdr']} for r in rows if 'lladdr' in r and ':' not in r['dst']]
-    # Cache bywa powielony na wielu interfejsach. Wybór pierwszego wpisu jest jawnie ograniczeniem MVP.
+    # Merge repeated neighbor entries while retaining every observed IPv4 address.
     valid=[]
     for row in data:
         try:valid.extend(normalize([row]))
@@ -47,7 +47,7 @@ def observe(path,rows,complete=False):
                 if set(json.loads(old['ips']) or [old['ip']])!=set(row['ips']):changes.append('IP_CHANGE')
                 if old['hostname']!=row['hostname'] and row['hostname']:changes.append('HOSTNAME_CHANGE')
                 if old['status']=='offline':changes.append('RETURNED')
-            if any(p['ip']==row['ip'] and p['mac']!=row['mac'] for p in previous.values()):changes.append('POSSIBLE_MAC_CHANGE')
+            if any(set(json.loads(p['ips']) or [p['ip']]).intersection(row['ips']) and p['mac']!=row['mac'] for p in previous.values()):changes.append('POSSIBLE_MAC_CHANGE')
             db.execute('INSERT INTO devices(mac,ip,hostname,vendor,first_seen,last_seen,status,category,ips) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(mac) DO UPDATE SET ip=excluded.ip,ips=excluded.ips,hostname=CASE WHEN excluded.hostname="" THEN devices.hostname ELSE excluded.hostname END,vendor=CASE WHEN excluded.vendor="" THEN devices.vendor ELSE excluded.vendor END,last_seen=excluded.last_seen,status=excluded.status',
                        (row['mac'],row['ip'],row['hostname'],row['vendor'],stamp,stamp,'online','Nieznane',json.dumps(row['ips'])))
             events.extend({'mac':row['mac'],'event':c,'details':row['ip']} for c in changes)
