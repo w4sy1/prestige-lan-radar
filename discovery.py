@@ -58,7 +58,10 @@ def discover(cidr,authorized,neighbor_provider,oui=None,probe=ping,resolve_names
     if not authorized:raise ValueError('Potwierdź uprawnienie do własnej sieci opcją --authorized.')
     with ThreadPoolExecutor(max_workers=16) as executor:
         alive={address for address,success in zip(addresses,executor.map(probe,addresses)) if success}
-    observed=[row for row in neighbor_provider() if row['ip'] in alive]
+    observed=[]
+    for row in neighbor_provider():
+        for address in row.get('ips',[row['ip']]):
+            if address in alive:observed.append(dict(row,ip=address,ips=[address],status='online'))
     if resolve_names:
         with ThreadPoolExecutor(max_workers=8) as executor:
             observed=[dict(row,hostname=name) for row,name in zip(observed,executor.map(hostname,[row['ip'] for row in observed]))]
